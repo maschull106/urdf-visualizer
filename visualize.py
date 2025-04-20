@@ -8,13 +8,28 @@ from dataclasses import dataclass
 URDF_PATH = "test.urdf"
 
 
+@dataclass
+class MimicInfo:
+    joint: Joint
+    multiplier: float = 1.0
+    offset: float = 0.0
+
+
 class Joint:
     def __init__(self, robot_id: int, idx: int):
         self.idx = idx
         self.robot_id = robot_id
+        self.mimic_list: dict[Joint, MimicInfo] = {}
+        self.is_mimic = False
+    
+    def add_mimic(self, mimic_info: MimicInfo):
+        self.mimic_list[mimic_info.joint] = mimic_info
     
     def set_pos(self, val: float):
         p.setJointMotorControl2(self.robot_id, self.idx, p.POSITION_CONTROL, targetPosition=val)
+        for mimic_joint, mimic_info in self.mimic_list.items():
+            mimic_val = mimic_info.multiplier * val + mimic_info.offset
+            mimic_joint.set_pos(mimic_val)
 
 
 class RobotJoints:
@@ -25,6 +40,7 @@ class RobotJoints:
         self.robot_id = p.loadURDF(URDF_PATH, basePosition=base_position)
 
         self.find_joints()
+        self.find_mimics()
     
     def find_joints(self):
         self.index_to_name: dict[int, str] = {}
@@ -36,11 +52,29 @@ class RobotJoints:
             self.index_to_name[i] = name
             self.name_to_index[name] = i
             self.joints[name] = Joint(self.robot_id, i)
-
+    
+    def find_mimics(self):
+        for joint in self.root.findall("joint"):
+            mimic_elem = joint.find("mimic")
+            if mimic_elem is not None:
+                mimicking_joint = self.joints[joint.get("name")]
+                mimicked_joint = self.joints[mimic_elem.get("joint")]
+                mimicked_joint.add_mimic(
+                    MimicInfo(
+                        joint=mimicking_joint,
+                        multiplier=float(mimic_elem.get("multiplier", 1.0)),
+                        offset=float(mimic_elem.get("offset", 0.0))
+                    )
+                )
+                mimicking_joint.is_mimic = True
+    
     def add_control_sliders(self):
         self.sliders = {}
 
         for name, joint in self.joints.items():
+            if joint.is_mimic:
+                continue
+
             info = p.getJointInfo(self.robot_id, joint.idx)
             joint_type = info[2]
             if joint_type in [p.JOINT_REVOLUTE, p.JOINT_PRISMATIC]:
