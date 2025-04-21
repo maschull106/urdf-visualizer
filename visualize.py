@@ -4,8 +4,9 @@ import pybullet_data
 import time
 import xml.etree.ElementTree as ET
 from dataclasses import dataclass
+from typing import Optional
 
-URDF_PATH = "test.urdf"
+DEFAULT_URDF_PATH = "panda_urdf/panda_arm.urdf"
 
 
 @dataclass
@@ -33,16 +34,30 @@ class Joint:
 
 
 class RobotJoints:
-    def __init__(self, urdf_path: str, base_position: list):
+    def __init__(self, urdf_path: str, fixed_base: Optional[bool] = None, base_position: Optional[list] = None):
         self.urdf_path = urdf_path
-        self.tree = ET.parse(URDF_PATH)
+        self.tree = ET.parse(self.urdf_path)
         self.root = self.tree.getroot()
-        self.robot_id = p.loadURDF(URDF_PATH, basePosition=base_position)
 
-        self.find_joints()
-        self.find_mimics()
+        if fixed_base is None:
+            fixed_base = self._detect_fixed()
+        if base_position is None:
+            base_position = [0, 0, 0] if fixed_base else [0, 0, 1]
+
+        self.robot_id = p.loadURDF(self.urdf_path, basePosition=base_position, useFixedBase=fixed_base)
+
+        self._find_joints()
+        self._find_mimics()
     
-    def find_joints(self):
+    def _detect_fixed(self):
+        for gazebo in self.root.findall("gazebo"):
+            static_elem = gazebo.find("static")
+            if static_elem is not None:
+                if static_elem.text == "true":
+                    return True
+        return False
+
+    def _find_joints(self):
         self.index_to_name: dict[int, str] = {}
         self.name_to_index: dict[str, int] = {}
         self.joints: dict[str, Joint] = {}
@@ -53,7 +68,7 @@ class RobotJoints:
             self.name_to_index[name] = i
             self.joints[name] = Joint(self.robot_id, i)
     
-    def find_mimics(self):
+    def _find_mimics(self):
         for joint in self.root.findall("joint"):
             mimic_elem = joint.find("mimic")
             if mimic_elem is not None:
@@ -97,7 +112,7 @@ def start_pybullet():
 
 def visualize():
     floor_id = p.loadURDF("plane.urdf")
-    robot = RobotJoints(URDF_PATH, base_position=[0, 0, 1])
+    robot = RobotJoints(DEFAULT_URDF_PATH)
     robot.add_control_sliders()
 
     while True:
