@@ -90,7 +90,7 @@ class ArgvParser:
         return self._dataclass_object(**self._arg_dict)
 
 
-def parse_argv(f: Callable[[type], Any]):
+def parse_argv(f: Callable):
     """
     Assuming the function f takes exactly one argument which must be annotated as a dataclass instance
     """
