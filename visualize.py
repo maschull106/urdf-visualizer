@@ -6,6 +6,10 @@ import xml.etree.ElementTree as ET
 from dataclasses import dataclass
 from typing import Optional
 from parse_argv import parse_argv
+from io import StringIO
+from xacro import process_file
+import tempfile
+import os
 
 
 DEFAULT_URDF_PATH = "panda_urdf/panda_arm.urdf"
@@ -36,8 +40,12 @@ class Joint:
 
 
 class RobotJoints:
-    def __init__(self, urdf_path: str, fixed_base: Optional[bool] = None, base_position: Optional[list] = None):
+    def __init__(self, urdf_path: str, fixed_base: Optional[bool] = None, base_position: Optional[list] = None, enable_self_collision: bool = False):
         self.urdf_path = urdf_path
+        with open(self.urdf_path) as f:
+            print("\n"*10)
+            print(f.read())
+            print("\n"*10)
         self.tree = ET.parse(self.urdf_path)
         self.root = self.tree.getroot()
 
@@ -46,7 +54,10 @@ class RobotJoints:
         if base_position is None:
             base_position = [0, 0, 0] if fixed_base else [0, 0, 1]
 
-        self.robot_id = p.loadURDF(self.urdf_path, basePosition=base_position, useFixedBase=fixed_base)
+        if enable_self_collision:
+            self.robot_id = p.loadURDF(self.urdf_path, basePosition=base_position, useFixedBase=fixed_base, flags=p.URDF_USE_SELF_COLLISION)
+        else:
+            self.robot_id = p.loadURDF(self.urdf_path, basePosition=base_position, useFixedBase=fixed_base)
 
         self._find_joints()
         self._find_mimics()
@@ -121,8 +132,26 @@ def start_pybullet():
 
 @dataclass
 class Settings:
-    path: str = DEFAULT_URDF_PATH
+    urdf: str = DEFAULT_URDF_PATH
     fixed: bool = None
+    self_collision: bool = False
+
+
+def create_robot(settings: Settings) -> int:
+    _make_robot = lambda: RobotJoints(urdf_path=settings.urdf, fixed_base=settings.fixed, enable_self_collision=settings.self_collision)
+    urdf_path = settings.urdf
+    is_xacro = urdf_path.endswith("xacro")
+    if not is_xacro:
+        return _make_robot()
+    
+    urdf_dir = os.path.dirname(os.path.abspath(urdf_path))
+    urdf_str = process_file(urdf_path).toprettyxml()
+    with tempfile.NamedTemporaryFile(suffix='.urdf', mode='w+', dir=urdf_dir, delete=True) as f:
+        f.write(urdf_str)
+        f.flush()
+        settings.urdf = f.name
+        robot = _make_robot()
+    return robot
 
 
 @parse_argv
@@ -130,7 +159,7 @@ def visualize(settings: Settings):
     floor_id = p.loadURDF("plane.urdf")
     floor_rgb = [0.831, 0.965, 1.0]
     p.changeVisualShape(floor_id, -1, rgbaColor=[*floor_rgb, 1])
-    robot = RobotJoints(urdf_path=settings.path, fixed_base=settings.fixed)
+    robot = create_robot(settings)
     robot.add_control_sliders()
 
     while True:
