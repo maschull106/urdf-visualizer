@@ -6,7 +6,6 @@ import xml.etree.ElementTree as ET
 from dataclasses import dataclass
 from typing import Optional
 from parse_argv import parse_argv
-from io import StringIO
 from xacro import process_file
 import tempfile
 import os
@@ -29,10 +28,10 @@ class Joint:
         self.mimic_list: dict[Joint, MimicInfo] = {}
         self.is_mimic = False
     
-    def add_mimic(self, mimic_info: MimicInfo):
+    def add_mimic(self, mimic_info: MimicInfo) -> None:
         self.mimic_list[mimic_info.joint] = mimic_info
     
-    def set_pos(self, val: float):
+    def set_pos(self, val: float) -> None:
         p.setJointMotorControl2(self.robot_id, self.idx, p.POSITION_CONTROL, targetPosition=val)
         for mimic_joint, mimic_info in self.mimic_list.items():
             mimic_val = mimic_info.multiplier * val + mimic_info.offset
@@ -42,10 +41,6 @@ class Joint:
 class RobotJoints:
     def __init__(self, urdf_path: str, fixed_base: Optional[bool] = None, base_position: Optional[list] = None, enable_self_collision: bool = False):
         self.urdf_path = urdf_path
-        with open(self.urdf_path) as f:
-            print("\n"*10)
-            print(f.read())
-            print("\n"*10)
         self.tree = ET.parse(self.urdf_path)
         self.root = self.tree.getroot()
 
@@ -70,7 +65,7 @@ class RobotJoints:
                     return True
         return False
 
-    def _find_joints(self):
+    def _find_joints(self) -> None:
         self.index_to_name: dict[int, str] = {}
         self.name_to_index: dict[str, int] = {}
         self.joints: dict[str, Joint] = {}
@@ -81,7 +76,7 @@ class RobotJoints:
             self.name_to_index[name] = i
             self.joints[name] = Joint(self.robot_id, i)
     
-    def _find_mimics(self):
+    def _find_mimics(self) -> None:
         for joint in self.root.findall("joint"):
             mimic_elem = joint.find("mimic")
             if mimic_elem is not None:
@@ -96,7 +91,7 @@ class RobotJoints:
                 )
                 mimicking_joint.is_mimic = True
     
-    def add_control_sliders(self):
+    def add_control_sliders(self) -> None:
         self.sliders = {}
 
         for name, joint in self.joints.items():
@@ -110,14 +105,14 @@ class RobotJoints:
                 upper = info[9] if info[8] < info[9] else 3.14
                 self.sliders[name] = p.addUserDebugParameter(name, lower, upper, 0.0)
     
-    def update_from_sliders(self):
+    def update_from_sliders(self) -> None:
         for name, slider_id in self.sliders.items():
             joint = self.joints[name]
             val = p.readUserDebugParameter(slider_id)
             joint.set_pos(val)
 
 
-def start_pybullet():
+def start_pybullet() -> None:
     p.connect(p.GUI)
     p.setAdditionalSearchPath(pybullet_data.getDataPath())
     p.setGravity(0, 0, -9.81)
@@ -137,7 +132,7 @@ class Settings:
     self_collision: bool = False
 
 
-def create_robot(settings: Settings) -> int:
+def create_robot(settings: Settings) -> RobotJoints:
     _make_robot = lambda: RobotJoints(urdf_path=settings.urdf, fixed_base=settings.fixed, enable_self_collision=settings.self_collision)
     urdf_path = settings.urdf
     is_xacro = urdf_path.endswith("xacro")
@@ -155,7 +150,7 @@ def create_robot(settings: Settings) -> int:
 
 
 @parse_argv
-def visualize(settings: Settings):
+def visualize(settings: Settings) -> None:
     floor_id = p.loadURDF("plane.urdf")
     floor_rgb = [0.831, 0.965, 1.0]
     p.changeVisualShape(floor_id, -1, rgbaColor=[*floor_rgb, 1])

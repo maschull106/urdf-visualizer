@@ -37,12 +37,12 @@ To make you robot fixed to the world, you can give the `--fixed=true` option as 
     <static>true</static>
 </gazebo>
 ```
-element in your URDF (note that any static information from the URDF will be overriden if the `--fixed` CLI argument is provided).
+element in your URDF (note that any static information from the URDF will be overridden if the `--fixed` CLI argument is provided).
 
 ### Available CLI argument
 
 | Argument          | Description                                       | Default               |
 |-------------------|---------------------------------------------------|-----------------------|
 | `--urdf`          | **string**: Path to URDF/Xacro file               | `DEFAULT_URDF_PATH`   |
-| `--fixed`         | **bool**: Fix the robot's base link to the world  | decide from urdf      |
+| `--fixed`         | **bool**: Fix the robot's base link to the world  | Decide from urdf      |
 | `--self_collision`| **bool**: Check for self collisions               | `False`               |

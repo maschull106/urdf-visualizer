@@ -1,5 +1,5 @@
-from dataclasses import dataclass, is_dataclass, fields, Field, MISSING
-from typing import Optional, Any, Callable
+from dataclasses import is_dataclass, fields, Field, MISSING
+from typing import Any, Callable, TypeVar
 import sys
 import builtins
 
@@ -69,14 +69,14 @@ class ArgvParser:
         str_val = cli_arg[cli_arg.index(ArgvParser.EQ_SEP)+1:]
         return self._eval_str_field_val(str_val, field)
     
-    def _parse_arg(self, cli_arg: str):
+    def _parse_arg(self, cli_arg: str) -> None:
         for field in self._dataclass_fields:
             if self._match_field(cli_arg, field):
                 self._arg_dict[field.name] = self._parse_field(cli_arg, field)
                 return
         raise ValueError(f"Unknown cli argument or bad synthax: {cli_arg}\n{ArgvParser.USAGE}\nAvailable arguments: {', '.join(self._available_args())}")
 
-    def _enforce_required_fields(self):
+    def _enforce_required_fields(self) -> None:
         for field in self._dataclass_fields:
             if field.default is MISSING:
                 if field.name not in self._arg_dict:
@@ -90,7 +90,10 @@ class ArgvParser:
         return self._dataclass_object(**self._arg_dict)
 
 
-def parse_argv(f: Callable):
+T = TypeVar('T')
+
+
+def parse_argv(f: Callable[[Any], T]) -> Callable[[], T]:
     """
     Assuming the function f takes exactly one argument which must be annotated as a dataclass instance
     """
@@ -101,7 +104,7 @@ def parse_argv(f: Callable):
     parser = ArgvParser(dataclass_object, source_scope_globals=f.__globals__)
     parsed_arg = parser.parse_argv()
 
-    def inner_f() -> Any:
+    def inner_f() -> T:
         return f(parsed_arg)
     
     return inner_f
