@@ -112,24 +112,27 @@ class RobotJoints:
             joint.set_pos(val)
 
 
-def start_pybullet() -> None:
-    p.connect(p.GUI)
-    p.setAdditionalSearchPath(pybullet_data.getDataPath())
-    p.setGravity(0, 0, -9.81)
-
-    # p.configureDebugVisualizer(p.COV_ENABLE_GUI, 0)  # Hide sidebar GUI
-    p.configureDebugVisualizer(p.COV_ENABLE_MOUSE_PICKING, 1)
-    # p.configureDebugVisualizer(p.COV_ENABLE_SHADOWS, 1)
-    p.configureDebugVisualizer(p.COV_ENABLE_RGB_BUFFER_PREVIEW, 0)
-    p.configureDebugVisualizer(p.COV_ENABLE_DEPTH_BUFFER_PREVIEW, 0)
-    p.configureDebugVisualizer(p.COV_ENABLE_SEGMENTATION_MARK_PREVIEW, 0)
-
-
 @dataclass
 class Settings:
     urdf: str = DEFAULT_URDF_PATH
     fixed: bool = None
     self_collision: bool = False
+    gravity: float = 9.81
+    show_sidebars: bool = True
+
+
+def start_pybullet(settings: Settings) -> None:
+    p.connect(p.GUI)
+    p.setAdditionalSearchPath(pybullet_data.getDataPath())
+    p.setGravity(0, 0, -settings.gravity)
+
+    if not settings.show_sidebars:
+        p.configureDebugVisualizer(p.COV_ENABLE_GUI, 0)  # Hide sidebar GUI
+    p.configureDebugVisualizer(p.COV_ENABLE_MOUSE_PICKING, 1)
+    # p.configureDebugVisualizer(p.COV_ENABLE_SHADOWS, 1)
+    p.configureDebugVisualizer(p.COV_ENABLE_RGB_BUFFER_PREVIEW, 0)
+    p.configureDebugVisualizer(p.COV_ENABLE_DEPTH_BUFFER_PREVIEW, 0)
+    p.configureDebugVisualizer(p.COV_ENABLE_SEGMENTATION_MARK_PREVIEW, 0)
 
 
 def create_robot(settings: Settings) -> RobotJoints:
@@ -141,7 +144,7 @@ def create_robot(settings: Settings) -> RobotJoints:
     
     urdf_dir = os.path.dirname(os.path.abspath(urdf_path))
     urdf_str = process_file(urdf_path).toprettyxml()
-    with tempfile.NamedTemporaryFile(suffix='.urdf', mode='w+', dir=urdf_dir, delete=True) as f:
+    with tempfile.NamedTemporaryFile(suffix=".urdf", mode="w+", dir=urdf_dir, delete=True) as f:
         f.write(urdf_str)
         f.flush()
         settings.urdf = f.name
@@ -149,7 +152,6 @@ def create_robot(settings: Settings) -> RobotJoints:
     return robot
 
 
-@parse_argv
 def visualize(settings: Settings) -> None:
     floor_id = p.loadURDF("plane.urdf")
     floor_rgb = [0.831, 0.965, 1.0]
@@ -164,9 +166,14 @@ def visualize(settings: Settings) -> None:
         time.sleep(1.0 / 240.0)
 
 
+@parse_argv
+def main(settings: Settings) -> None:
+    start_pybullet(settings)
+    visualize(settings)
+
+
 if __name__ == "__main__":
-    start_pybullet()
     try:
-        visualize()
+        main()
     except KeyboardInterrupt:
         p.disconnect()

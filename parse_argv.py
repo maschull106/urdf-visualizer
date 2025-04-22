@@ -90,7 +90,7 @@ class ArgvParser:
         return self._dataclass_object(**self._arg_dict)
 
 
-T = TypeVar('T')
+T = TypeVar("T")
 
 
 def parse_argv(f: Callable[[Any], T]) -> Callable[[], T]:

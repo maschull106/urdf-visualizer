@@ -41,8 +41,10 @@ element in your URDF (note that any static information from the URDF will be ove
 
 ### Available CLI argument
 
-| Argument          | Description                                       | Default               |
-|-------------------|---------------------------------------------------|-----------------------|
-| `--urdf`          | **string**: Path to URDF/Xacro file               | `DEFAULT_URDF_PATH`   |
-| `--fixed`         | **bool**: Fix the robot's base link to the world  | Decide from urdf      |
-| `--self_collision`| **bool**: Check for self collisions               | `False`               |
+| Argument          | Description                                           | Default               |
+|-------------------|-------------------------------------------------------|-----------------------|
+| `--urdf`          | **string**: Path to URDF/Xacro file                   | `DEFAULT_URDF_PATH`   |
+| `--fixed`         | **bool**: Fix the robot's base link to the world      | Decide from urdf      |
+| `--self_collision`| **bool**: Check for self collisions                   | `False`               |
+| `--gravity`       | **float**: Downwards gravitational force              | `9.81`                |
+| `show_sidebars`   | **bool**: Show GUI sidebars (including joint sliders) | `True`                |
