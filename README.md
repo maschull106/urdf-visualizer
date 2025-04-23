@@ -6,7 +6,8 @@
 ## Features
 - **Visualize any .urdf or .urdf.xacro file** in PyBullet
 - **No ROS required**
-- **Supports mimic joints** (not supported in pybullet by default)
+- **Support for mimic joints** (not supported in pybullet by default)
+- **Integrated sliders** for joint movement testing
 - **Easy-to-use CLI** for quick testing
 <!-- - **Supports parameter tuning** (gravity, camera view, etc.) -->
 
