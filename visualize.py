@@ -41,8 +41,13 @@ class Joint:
 class RobotJoints:
     def __init__(self, urdf_path: str, fixed_base: Optional[bool] = None, base_position: Optional[list] = None, enable_self_collision: bool = False):
         self.urdf_path = urdf_path
+        self.original_urdf_path = urdf_path  # Store the original path
+        self.temp_files = []  # Track temporary files for cleanup
         self.tree = ET.parse(self.urdf_path)
         self.root = self.tree.getroot()
+
+        # Preprocess the URDF to fix package:// URLs
+        self._fix_package_paths()
 
         if fixed_base is None:
             fixed_base = self._detect_fixed()
@@ -56,6 +61,57 @@ class RobotJoints:
 
         self._find_joints()
         self._find_mimics()
+    
+    def __del__(self):
+        """Clean up temporary files when the object is deleted."""
+        try:
+            for temp_file in self.temp_files:
+                if os.path.exists(temp_file):
+                    os.unlink(temp_file)
+        except:
+            pass
+    
+    def _fix_package_paths(self) -> None:
+        """Fix package:// URLs in the URDF file by replacing them with the correct relative paths."""
+        # Map package names to their directory paths
+        package_map = {
+            "robot_description": "robot-description"
+        }
+        
+        modified = False
+        # Find all mesh elements in the URDF
+        for mesh in self.root.findall(".//mesh"):
+            filename = mesh.get("filename")
+            if filename and filename.startswith("package://"):
+                # Extract the package name and path
+                parts = filename[len("package://"):].split("/", 1)
+                if len(parts) == 2:
+                    package_name, path = parts
+                    if package_name in package_map:
+                        # Replace the package name with the correct directory
+                        new_path = f"{package_map[package_name]}/{path}"
+                        mesh.set("filename", new_path)
+                        modified = True
+                        print(f"Fixed mesh path: {filename} -> {new_path}")
+        
+        if modified:
+            # Write the modified URDF back to a temporary file
+            with tempfile.NamedTemporaryFile(suffix=".urdf", mode="w", delete=False) as temp_file:
+                temp_file_path = temp_file.name
+                self.tree.write(temp_file_path)
+                
+                # XML from ElementTree may lack the XML declaration
+                # Re-read and write with proper XML declaration
+                with open(temp_file_path, 'r') as f:
+                    content = f.read()
+                
+                with open(temp_file_path, 'w') as f:
+                    if not content.startswith('<?xml'):
+                        f.write('<?xml version="1.0" ?>\n')
+                    f.write(content)
+                
+                self.urdf_path = temp_file_path
+                self.temp_files.append(temp_file_path)  # Track for cleanup
     
     def _detect_fixed(self) -> bool:
         for gazebo in self.root.findall("gazebo"):
@@ -144,11 +200,14 @@ def create_robot(settings: Settings) -> RobotJoints:
     
     urdf_dir = os.path.dirname(os.path.abspath(urdf_path))
     urdf_str = process_file(urdf_path).toprettyxml()
-    with tempfile.NamedTemporaryFile(suffix=".urdf", mode="w+", dir=urdf_dir, delete=True) as f:
+    with tempfile.NamedTemporaryFile(suffix=".urdf", mode="w+", dir=urdf_dir, delete=False) as f:
         f.write(urdf_str)
         f.flush()
-        settings.urdf = f.name
+        temp_path = f.name
+        settings.urdf = temp_path
         robot = _make_robot()
+        # Add the temporary file to the cleanup list
+        robot.temp_files.append(temp_path)
     return robot
 
 
